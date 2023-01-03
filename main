@@ -1,0 +1,225 @@
+"""
+Data Mining - 47717
+Hw3 - practical part code
+Gil Zalcberg - 316331735
+Matan chen - 315549626
+"""
+import nltk
+import requests
+from matplotlib import pylab, style
+import string
+import matplotlib.pyplot as plt
+import regex
+import seaborn as sns
+import numpy as np
+import pandas as pd
+from nltk.tokenize import word_tokenize
+import math
+# nltk.download('punkt')
+# nltk.download('averaged_perceptron_tagger')
+# nltk.download('stopwords')
+# nltk.download('gutenberg')
+from nltk.tokenize import TreebankWordTokenizer
+
+# ------------Magic numbers and Constants----------------- #
+ADJ_TAGS = ['JJ', 'JJR', 'JJS']
+NOUN_TAGS = ['NNP', 'NNS', 'NN', 'NNPS']
+NOUN_FLAG = 2
+ADJ_FLAG = 1
+POS_TAGS = ['#', 'VBP', 'UH', 'VBD',
+            'IN', 'TO', 'RBR' 'CD', 'RBS',
+            'PRP$', 'MD', 'VB', 'RB' 'VBZ',
+            'RP', ':', 'FW', 'CC', 'WRB', 'EX', 'DT', '$', 'VBG', 'VBN', 'PRP',
+            'WP', 'WDT', 'POS']
+SPACE = " "
+POINT = "."
+COMMON_NUMBER = 20
+
+
+def find_sentences(tokenized_text):
+    """
+    :param tokenized_text
+    :return:  a list of all sequence of adjectives and nouns. e.g : oval office
+    """
+    tagsList_ = nltk.pos_tag(count_occur_dict(tokenized_text))
+    tagDict_ = dict()
+    for _topple in tagsList_:
+        tag = _topple[1]
+        tagDict_[_topple[0]] = tag
+    sequence = list()
+    cur_sentence = list()
+    pos_flag = None
+    for token in tokenized_text:
+        if token not in tagDict_:
+            continue
+        elif tagDict_[token] in POS_TAGS:
+            if len(cur_sentence) >= 2 and pos_flag == NOUN_FLAG:
+                sequence.append(cur_sentence)
+            pos_flag = None
+            cur_sentence = []
+        elif pos_flag != NOUN_FLAG and tagDict_[token] in ADJ_TAGS:
+            pos_flag = ADJ_FLAG
+            cur_sentence.append(token)
+        elif len(cur_sentence) and tagDict_[token] in NOUN_TAGS:
+            pos_flag = NOUN_FLAG
+            cur_sentence.append(token)
+            sequence.append(cur_sentence)
+    return sequence, tagDict_
+
+
+def punctuation_removal(data):
+    """
+    :param data: text to clean
+    :return: a clean from punctuation marks string
+    """
+    all_list = [char for char in data if char not in string.punctuation]
+    clean_str = ''.join(all_list)
+    return clean_str
+
+
+def getMostCommon(dictionary, number):
+    """
+    :return: n first keys of the dictionary
+    """
+    dict_items = dictionary.keys()
+    mostCom = list(dict_items)[:number]
+    return mostCom
+
+
+def removeStopWords(data):
+    """
+    Removes all stop words from the text
+    :param data:
+    :return:
+    """
+    from nltk.corpus import stopwords
+    # STOP = stopwords.words('english')
+    data['text'] = data['text'].apply(
+        lambda y: ' '.join([w for w in y.split() if w not in STOP]))
+
+
+def count_occur_dict(text_file1):
+    """
+    makes a dictionary of the occurnces
+    :param text_file1:
+    :return:
+    """
+    dic = dict()
+    for w in text_file1:
+        if w in dic:
+            dic[w] += 1
+        else:
+            dic[w] = 1
+    return dic
+
+
+def plotter(dic, legend):
+    """
+    Plots a Log-Log graph of the dictionary values, with its ranks
+    :param dic: dictionary to plot its values
+    :param legend: Legend of the specific Graph line
+    :return: None
+    """
+    end_rang = len(dic)
+    x_axis = [math.log(i) for i in range(1, end_rang + 1)]
+    y_axis = [math.log(v) for v in dic.values()]
+    plt.plot(x_axis, y_axis, color="b", marker='D',
+             linestyle="--",
+             markersize=2)
+    plt.title("Zipf's Law in \"The prince\"")
+    plt.xlabel('Ranks (Log)')
+    plt.ylabel('Frequencies (Log)')
+    plt.legend([legend])
+    plt.style.use('ggplot')
+    plt.show()
+
+
+def removePunctuation(text_):
+    text_ = punctuation_removal(text_)
+    text_ = text_.replace('“', "")
+    text_ = text_.replace('”', "")
+    text_ = text_.replace('’', "")
+    return text_
+
+
+if __name__ == '__main__':
+    import operator
+    from nltk.tokenize import TreebankWordTokenizer
+
+    # Question A: The prince By niccolo  Machiavelli
+    txt = open("prince.txt", 'r', encoding='utf-8')
+    text_file = txt.read()
+    txt.close()
+    # lower the cases of the text
+    text = text_file.lower()
+    regex_text = text
+    # remove punctuation  and quotation marks
+    text = removePunctuation(text)
+
+    # tokenize the text with Tree Bank method
+    tokenizedText = TreebankWordTokenizer().tokenize(text)
+    # sort the dictionary (descending)
+    sorted_x = {k: v for k, v in
+                sorted(count_occur_dict(tokenizedText).items(), reverse=True,
+                       key=lambda item: item[1])}
+
+    # plot normal tokenizing
+    plotter(sorted_x, "The prince tokens")
+    print(getMostCommon(sorted_x, COMMON_NUMBER))
+
+    # repeat with no StopWords:
+    from nltk.corpus import stopwords
+
+    STOP = stopwords.words('english')
+    sorted_x_no_stop = {k: v for k, v in sorted_x.items() if k not in STOP}
+    plotter(sorted_x_no_stop, "No stopWords tokens")
+    print(getMostCommon(sorted_x_no_stop, COMMON_NUMBER))
+
+    # stem the words
+    from nltk.stem import PorterStemmer
+
+    tokenized_stem_no_stopWords = [PorterStemmer().stem(k) for k in
+                                   tokenizedText if
+                                   k not in STOP]
+    sorted_x_stemmed = {k: v for k, v in
+                        sorted(count_occur_dict(
+                            tokenized_stem_no_stopWords).items(), reverse=True,
+                               key=lambda item: item[1])}
+
+    # plot stemmed tokens
+    plotter(sorted_x_stemmed, "No stopWords & stemmed tokens")
+    print(getMostCommon(sorted_x_stemmed, COMMON_NUMBER))
+
+    # e) POS Tagging:
+    textToPos = TreebankWordTokenizer().tokenize(text)
+    sentenceTokens, tags_dictionary = (find_sentences(textToPos))
+    hashable_list = [SPACE.join(k) for k in sentenceTokens]
+    frequencies = nltk.FreqDist(hashable_list)
+    sentence_dict = {k: v for k, v in sorted(frequencies.items(), reverse=True,
+                                             key=lambda item: item[1])}
+    plotter(sentence_dict, "Adj. & nouns sentence tokens")
+    print(getMostCommon(sentence_dict, COMMON_NUMBER))
+
+    # f) Pos mistake:
+    sen = "Let no one be surprised if".lower()
+    tkn = word_tokenize(sen)
+    for word in tkn:
+        words_ = nltk.word_tokenize(word)
+        tagg = nltk.pos_tag(words_)
+        print(tagg)
+
+    # g) Tag Cloud
+    tagsList = nltk.pos_tag(
+        count_occur_dict(TreebankWordTokenizer().tokenize(text_file)))
+    tagDict = dict()
+    for topple in tagsList:
+        tag = topple[1]
+        tagDict[topple[0]] = tag
+    proper_nouns = ""
+    for k, v in tagDict.items():
+        if v == 'NNP' or v == 'NNPS':
+            proper_nouns += (k + " ")
+
+    # h)
+    for match in regex.finditer(r"\b(\w+)[.,!?:\-\\'־]?\s+\1\b", regex_text):
+        print(match[0])
