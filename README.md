@@ -1,1 +1,2 @@
-# NLP- text mining exercise of the book "The prince"
+# NLP-
+text mining exercise on the book "The prince"
